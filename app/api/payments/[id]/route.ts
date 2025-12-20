@@ -1,32 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Params = { params: { id: string } };
+
+export async function GET(_req: Request, { params }: Params) {
   try {
-    const { status } = await request.json()
+    const payment = await prisma.failedPayment.findUnique({
+      where: { id: params.id },
+    });
 
-    if (!status || !['FAILED', 'CONTACTED', 'RECOVERED'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      )
+    if (!payment) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const payment = await prisma.failedPayment.update({
-      where: { id: params.id },
-      data: { status },
-    })
-
-    return NextResponse.json(payment)
-  } catch (error) {
-    console.error('Error updating payment:', error)
+    return NextResponse.json(payment);
+  } catch (err) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Server error", details: String(err) },
       { status: 500 }
-    )
+    );
   }
 }
 
+export async function PATCH(req: Request, { params }: Params) {
+  try {
+    const body = await req.json();
+    const status = body?.status;
+
+    if (!status) {
+      return NextResponse.json({ error: "Missing status" }, { status: 400 });
+    }
+
+    const updated = await prisma.failedPayment.update({
+      where: { id: params.id },
+      data: { status },
+    });
+
+    return NextResponse.json(updated);
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Server error", details: String(err) },
+      { status: 500 }
+    );
+  }
+}
