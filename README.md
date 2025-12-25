@@ -30,7 +30,10 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Required for webhook security
+# Required: Database URL (SQLite for local development)
+DATABASE_URL=file:./dev.db
+
+# Required: Webhook secret for securing the /api/webhook/failed-payment endpoint
 SWIFTCONNECT_WEBHOOK_SECRET=your-secret-key-here
 
 # Optional: Discord webhook URL for notifications
@@ -191,19 +194,106 @@ For production use, consider adding:
 - Input validation and sanitization
 - CSRF protection
 
+## Deployment Options
+
+### Option 1: Railway (Recommended for SQLite) 🚂
+
+Railway is perfect for this app since it supports SQLite with persistent file storage.
+
+#### Quick Deploy to Railway
+
+1. **Sign up** at [railway.app](https://railway.app)
+2. **Create a new project** → "Deploy from GitHub repo"
+3. **Select your repository**
+4. **Add Environment Variables** in Railway dashboard:
+   - `DATABASE_URL=file:./data/dev.db` (Railway will create the directory)
+   - `SWIFTCONNECT_WEBHOOK_SECRET` - Your webhook secret
+   - `DISCORD_WEBHOOK_URL` - (Optional) Discord webhook URL
+5. **Deploy** - Railway auto-detects Next.js and will build/deploy automatically
+
+The database will be automatically initialized on first deploy via the `start` script.
+
+#### Railway Benefits
+- ✅ Native SQLite support with persistent storage
+- ✅ Simple deployment process
+- ✅ Free tier available ($5 credit/month)
+- ✅ Automatic HTTPS
+- ✅ Custom domains
+
+---
+
+### Option 2: Vercel Deployment
+
+### 1. Database Setup
+
+**Important**: SQLite with file-based storage won't work on Vercel (ephemeral filesystem). You need a cloud database:
+
+**Option A: SQLite-compatible (Turso)**
+- Use [Turso](https://turso.tech/) for SQLite on the edge
+- Keep `provider = "sqlite"` in `prisma/schema.prisma`
+- Get connection string from Turso dashboard
+
+**Option B: PostgreSQL (Recommended)**
+- **Vercel Postgres** (easiest integration with Vercel)
+- **Neon** (free tier available, serverless Postgres)
+- **Supabase** (free tier available)
+
+If using PostgreSQL, update `prisma/schema.prisma`:
+
+```prisma
+datasource db {
+  provider = "postgresql"  // Change from "sqlite"
+  url      = env("DATABASE_URL")
+}
+```
+
+Then run:
+```bash
+npx prisma generate
+npx prisma db push  # Or use migrations for production
+```
+
+### 2. Environment Variables
+
+Add these in your Vercel project settings:
+- `DATABASE_URL` - Your database connection string
+- `SWIFTCONNECT_WEBHOOK_SECRET` - Your webhook secret
+- `DISCORD_WEBHOOK_URL` - (Optional) Your Discord webhook URL
+
+### 3. Deploy
+
+1. Push your code to GitHub
+2. Import the repository in Vercel
+3. Vercel will automatically detect Next.js and use the build command
+4. After deployment, run migrations: `npx prisma db push` (or use Prisma Migrate)
+
+**Note**: The `postinstall` script in `package.json` will automatically generate the Prisma client during build.
+
 ## Troubleshooting
 
 **Discord notifications not working?**
-- Check that `DISCORD_WEBHOOK_URL` is set in `.env`
+- Check that `DISCORD_WEBHOOK_URL` is set in `.env` (or Vercel environment variables)
 - Verify the webhook URL is valid (create a new one in Discord if needed)
 - Check server console for error messages
 
-**Database errors?**
+**Database errors on Vercel?**
+- Ensure `DATABASE_URL` is set in Vercel environment variables
+- Make sure the database provider in `schema.prisma` matches your database type
+- Run `npx prisma generate` locally to verify schema is valid
+- Check Vercel build logs for Prisma client generation errors
+
+**Local database errors?**
 - Run `npx prisma generate` and `npx prisma db push` again
-- Delete `prisma/dev.db` and recreate if needed
+- For SQLite: Delete `prisma/dev.db` and recreate if needed
+- Ensure `DATABASE_URL=file:./dev.db` is in your `.env` file
 
 **Webhook returns 401?**
-- Verify `x-swiftconnect-secret` header matches `SWIFTCONNECT_WEBHOOK_SECRET` in `.env`
+- Verify `x-swiftconnect-secret` header matches `SWIFTCONNECT_WEBHOOK_SECRET` in `.env` or Vercel environment variables
+
+**Build fails on Vercel?**
+- Ensure `postinstall` script runs `prisma generate`
+- Check that `DATABASE_URL` is set (required even during build)
+- Verify Prisma schema is valid: `npx prisma validate`
 
 ## License
 
