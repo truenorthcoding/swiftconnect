@@ -19,27 +19,36 @@ export async function POST(request: NextRequest) {
     if (!expectedPassword) {
       console.error('DASHBOARD_PASSWORD environment variable is not set')
       return NextResponse.json(
-        { error: 'Server configuration error' },
+        { error: 'Server configuration error: DASHBOARD_PASSWORD not set' },
         { status: 500 }
       )
     }
 
+    // Debug logging (remove in production if needed)
+    console.log('Login attempt - password provided:', password ? 'yes' : 'no')
+    console.log('Expected password length:', expectedPassword.length)
+
     if (password !== expectedPassword) {
+      console.log('Password mismatch')
       return NextResponse.json(
         { error: 'Invalid password' },
         { status: 401 }
       )
     }
 
+    console.log('Password match - setting cookie')
+
     // Set authentication cookie (expires in 30 days)
     const response = NextResponse.json({ success: true })
     response.cookies.set('dashboard-auth', 'authenticated', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always secure on Vercel (HTTPS)
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 days
       path: '/',
     })
+    
+    console.log('Cookie set successfully')
 
     return response
   } catch (error) {
