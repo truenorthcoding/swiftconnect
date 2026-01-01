@@ -15,7 +15,7 @@ A creator dashboard that helps recover revenue from failed payments. SwiftConnec
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: SQLite with Prisma ORM
+- **Database**: Postgres (Neon/Vercel Postgres) with Prisma ORM
 
 ## Setup Instructions
 
@@ -30,8 +30,8 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Required: Database URL (SQLite for local development)
-DATABASE_URL=file:./dev.db
+# Required: Database URL (Postgres for local + production)
+DATABASE_URL=postgresql://...
 
 # Required: Webhook secret for securing the /api/webhook/failed-payment endpoint
 SWIFTCONNECT_WEBHOOK_SECRET=your-secret-key-here
@@ -39,6 +39,13 @@ SWIFTCONNECT_WEBHOOK_SECRET=your-secret-key-here
 # Optional: Discord webhook URL for notifications
 # Get this from your Discord server: Server Settings → Integrations → Webhooks
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-url
+
+# Whop OAuth (required)
+APP_BASE_URL=http://localhost:3000
+WHOP_CLIENT_ID=...
+WHOP_CLIENT_SECRET=...
+WHOP_PRODUCT_ID=...               # SwiftConnect product id used to gate access
+WHOP_REDIRECT_URI=http://localhost:3000/api/auth/whop/callback
 ```
 
 **Note**: Generate a secure random string for `SWIFTCONNECT_WEBHOOK_SECRET`. You can use:
@@ -48,14 +55,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### 3. Set Up Database
 
-Generate Prisma client and push the schema:
+Generate Prisma client and run migrations:
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate dev
 ```
 
-This will create a SQLite database at `prisma/dev.db`.
+For production (Vercel), run:
+
+```bash
+npx prisma migrate deploy
+```
 
 ### 4. Run the Development Server
 
@@ -69,7 +80,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Dashboard
 
-Navigate to `/dashboard` to view all failed payments. You can:
+Navigate to `/login` to sign in with Whop, then access `/dashboard`. You can:
 
 - **View** all failed payments with customer details, product info, and status
 - **Mark Contacted**: Update status when you've reached out to the customer
@@ -94,6 +105,7 @@ x-swiftconnect-secret: your-secret-key-here
 **Request Body:**
 ```json
 {
+  "workspaceWhopBusinessId": "biz_...",
   "customerName": "John Doe",
   "customerEmail": "john.doe@example.com",
   "productName": "Premium Membership",
@@ -146,10 +158,13 @@ When a failed payment is created (via webhook or seed), if `DISCORD_WEBHOOK_URL`
 
 ## API Routes
 
-- `GET /api/payments` - Get all failed payments
-- `PATCH /api/payments/[id]` - Update payment status
+- `GET /api/payments` - Get failed payments for the logged-in workspace
+- `PATCH /api/payments/[id]` - Update payment status (workspace-scoped)
 - `POST /api/webhook/failed-payment` - Create a new failed payment (webhook)
-- `POST /api/seed` - Create a sample failed payment (dev)
+- `POST /api/seed` - Create a sample failed payment (workspace-scoped, dev)
+- `GET /api/auth/whop` - Start Whop OAuth
+- `GET /api/auth/whop/callback` - OAuth callback (creates session)
+- `POST /api/auth/logout` - Clear session
 
 ## Recovery Message Template
 
@@ -183,12 +198,11 @@ npm start
 
 ## Security Notes (MVP)
 
-- ⚠️ **No authentication**: This MVP skips user authentication for simplicity
+- 🔐 **Whop login**: Users authenticate via Whop OAuth; sessions are stored server-side via HttpOnly cookies
 - 🔒 **Webhook protection**: Webhook endpoint is protected by shared secret header
 - 🔐 **Environment variables**: Never commit `.env` file to version control
 
 For production use, consider adding:
-- User authentication/authorization
 - Rate limiting on webhook endpoint
 - HTTPS enforcement
 - Input validation and sanitization
@@ -196,7 +210,7 @@ For production use, consider adding:
 
 ## Deployment Options
 
-### Option 1: Railway (Recommended for SQLite) 🚂
+### Option 1: Postgres (Recommended) 🐘
 
 Railway is perfect for this app since it supports SQLite with persistent file storage.
 

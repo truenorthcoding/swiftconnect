@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type PaymentStatus = 'FAILED' | 'CONTACTED' | 'RECOVERED'
 
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [payments, setPayments] = useState<FailedPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [copySuccess, setCopySuccess] = useState<string | null>(null)
+  const router = useRouter()
 
   const fetchPayments = async () => {
     try {
@@ -108,6 +110,15 @@ export default function Dashboard() {
     }
   }
 
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+      router.refresh()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -127,6 +138,12 @@ export default function Dashboard() {
             >
               Home
             </Link>
+            <button
+              onClick={logout}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              Logout
+            </button>
             <button
               onClick={createSamplePayment}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"

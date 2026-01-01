@@ -1,12 +1,30 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDiscordNotification } from '@/lib/discord'
+import { NextRequest } from 'next/server'
+import { getActiveMembershipStatus, getAuthContextFromCookies } from '@/lib/auth'
+import { requireEnv } from '@/lib/env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthContextFromCookies(request.cookies)
+    if (!ctx) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const productId = requireEnv('WHOP_PRODUCT_ID')
+    const membership = await getActiveMembershipStatus({
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+      productId,
+    })
+    if ((membership?.status ?? '').toLowerCase() !== 'active') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const sampleData = {
       customerName: 'John Doe',
       customerEmail: 'john.doe@example.com',
@@ -19,6 +37,7 @@ export async function POST() {
     const failedPayment = await prisma.failedPayment.create({
       data: {
         ...sampleData,
+        workspaceId: ctx.workspaceId,
         status: 'FAILED',
       },
     })
