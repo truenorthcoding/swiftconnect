@@ -15,10 +15,10 @@ export default function Home() {
           failed customer payments with ease.
         </p>
         <Link
-          href="/dashboard"
+          href="/login"
           className="inline-block px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-lg transition-colors duration-200 text-lg"
         >
-          Go to Dashboard
+          Continue to Dashboard
         </Link>
       </div>
     </main>

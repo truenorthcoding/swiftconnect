@@ -10,15 +10,88 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  whopUserId String    @unique
+  email      String?
+  name       String?
+
+  memberships Membership[]
+  sessions    Session[]
+}
+
+model Workspace {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  whopBusinessId String   @unique
+  name           String?
+
+  memberships   Membership[]
+  sessions      Session[]
+  failedPayments FailedPayment[]
+}
+
+model Membership {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  userId           String
+  workspaceId      String
+  productId        String
+  whopMembershipId String?
+  status           String
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@unique([userId, workspaceId, productId])
+}
+
+model Session {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+
+  userId       String
+  workspaceId  String
+
+  tokenHash    String    @unique
+
+  // Optional: store Whop user token to re-check membership server-side
+  whopAccessToken          String?
+  whopAccessTokenExpiresAt DateTime?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
 model FailedPayment {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   customerName  String
   customerEmail String
   productName   String
   amount        Float
-  currency      String   @default("USD")
+  currency      String    @default("USD")
   reason        String?
-  status        String   @default("FAILED") // FAILED | CONTACTED | RECOVERED
+  status        String    @default("FAILED") // FAILED | CONTACTED | RECOVERED
+
+  @@index([workspaceId])
 }
 
