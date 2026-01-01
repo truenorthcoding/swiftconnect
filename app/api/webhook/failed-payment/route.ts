@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     const {
-      // Multi-tenant routing: the Whop business that owns this data
-      workspaceWhopBusinessId,
+      // B2B tenant routing (Whop company_id)
+      company_id,
+      companyId,
       customerName,
       customerEmail,
       productName,
@@ -36,12 +37,12 @@ export async function POST(request: NextRequest) {
       reason,
     } = body
 
-    const headerWhopBusinessId = request.headers.get('x-whop-business-id')
-    const whopBusinessId = workspaceWhopBusinessId || headerWhopBusinessId
+    const headerCompanyId = request.headers.get('x-whop-company-id')
+    const effectiveCompanyId = company_id || companyId || headerCompanyId
 
-    if (!whopBusinessId) {
+    if (!effectiveCompanyId) {
       return NextResponse.json(
-        { error: 'Missing workspaceWhopBusinessId (or x-whop-business-id header)' },
+        { error: 'Missing company_id (or x-whop-company-id header)' },
         { status: 400 }
       )
     }
@@ -53,16 +54,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const workspace = await prisma.workspace.upsert({
-      where: { whopBusinessId: String(whopBusinessId) },
+    const company = await prisma.company.upsert({
+      where: { companyId: String(effectiveCompanyId) },
       update: {},
-      create: { whopBusinessId: String(whopBusinessId), name: null },
+      create: { companyId: String(effectiveCompanyId), name: null },
+      select: { id: true },
     })
 
     // Create failed payment record
     const failedPayment = await prisma.failedPayment.create({
       data: {
-        workspaceId: workspace.id,
+        companyId: company.id,
         customerName,
         customerEmail,
         productName,

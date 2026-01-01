@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getActiveMembershipStatus, getAuthContextFromCookies } from '@/lib/auth'
-import { requireEnv } from '@/lib/env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,20 +9,15 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const ctx = await getAuthContextFromCookies(request.cookies)
-    if (!ctx) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const companyId = request.headers.get('x-sc-company-id')
+    if (!companyId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const productId = requireEnv('WHOP_PRODUCT_ID')
-    const membership = await getActiveMembershipStatus({
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-      productId,
+    const company = await prisma.company.upsert({
+      where: { companyId },
+      update: {},
+      create: { companyId },
+      select: { id: true },
     })
-    if ((membership?.status ?? '').toLowerCase() !== 'active') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     const { status } = await request.json()
 
@@ -36,7 +29,7 @@ export async function PATCH(
     }
 
     const result = await prisma.failedPayment.updateMany({
-      where: { id: params.id, workspaceId: ctx.workspaceId },
+      where: { id: params.id, companyId: company.id },
       data: { status },
     })
 
@@ -45,7 +38,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.failedPayment.findFirst({
-      where: { id: params.id, workspaceId: ctx.workspaceId },
+      where: { id: params.id, companyId: company.id },
     })
 
     return NextResponse.json(updated)

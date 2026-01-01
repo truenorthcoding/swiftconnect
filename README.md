@@ -40,12 +40,9 @@ SWIFTCONNECT_WEBHOOK_SECRET=your-secret-key-here
 # Get this from your Discord server: Server Settings → Integrations → Webhooks
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-url
 
-# Whop OAuth (required)
-APP_BASE_URL=http://localhost:3000
-WHOP_CLIENT_ID=...
-WHOP_CLIENT_SECRET=...
-WHOP_PRODUCT_ID=...               # SwiftConnect product id used to gate access
-WHOP_REDIRECT_URI=http://localhost:3000/api/auth/whop/callback
+# Whop App authentication (required)
+# Whop signs the embedded app session as a JWT.
+WHOP_APP_SECRET=...
 ```
 
 **Note**: Generate a secure random string for `SWIFTCONNECT_WEBHOOK_SECRET`. You can use:
@@ -105,7 +102,7 @@ x-swiftconnect-secret: your-secret-key-here
 **Request Body:**
 ```json
 {
-  "workspaceWhopBusinessId": "biz_...",
+  "company_id": "company_...",
   "customerName": "John Doe",
   "customerEmail": "john.doe@example.com",
   "productName": "Premium Membership",
@@ -158,13 +155,11 @@ When a failed payment is created (via webhook or seed), if `DISCORD_WEBHOOK_URL`
 
 ## API Routes
 
-- `GET /api/payments` - Get failed payments for the logged-in workspace
-- `PATCH /api/payments/[id]` - Update payment status (workspace-scoped)
+- `GET /api/payments` - Get failed payments for the logged-in company (tenant)
+- `PATCH /api/payments/[id]` - Update payment status (company-scoped)
 - `POST /api/webhook/failed-payment` - Create a new failed payment (webhook)
-- `POST /api/seed` - Create a sample failed payment (workspace-scoped, dev)
-- `GET /api/auth/whop` - Start Whop OAuth
-- `GET /api/auth/whop/callback` - OAuth callback (creates session)
-- `POST /api/auth/logout` - Clear session
+- `POST /api/seed` - Create a sample failed payment (company-scoped, dev)
+- Dashboard authentication is handled by Whop App JWT via `middleware.ts` (no email/password).
 
 ## Recovery Message Template
 
