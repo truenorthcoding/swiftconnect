@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     const {
+      // B2B tenant routing (Whop company_id)
+      company_id,
+      companyId,
       customerName,
       customerEmail,
       productName,
@@ -34,6 +37,16 @@ export async function POST(request: NextRequest) {
       reason,
     } = body
 
+    const headerCompanyId = request.headers.get('x-whop-company-id')
+    const effectiveCompanyId = company_id || companyId || headerCompanyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: 'Missing company_id (or x-whop-company-id header)' },
+        { status: 400 }
+      )
+    }
+
     if (!customerName || !customerEmail || !productName || amount === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -41,9 +54,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const company = await prisma.company.upsert({
+      where: { companyId: String(effectiveCompanyId) },
+      update: {},
+      create: { companyId: String(effectiveCompanyId), name: null },
+      select: { id: true },
+    })
+
     // Create failed payment record
     const failedPayment = await prisma.failedPayment.create({
       data: {
+        companyId: company.id,
         customerName,
         customerEmail,
         productName,

@@ -10,15 +10,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Company {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Whop "company_id" (tenant key)
+  companyId  String   @unique
+  name       String?
+
+  failedPayments FailedPayment[]
+}
+
 model FailedPayment {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   customerName  String
   customerEmail String
   productName   String
   amount        Float
-  currency      String   @default("USD")
+  currency      String    @default("USD")
   reason        String?
-  status        String   @default("FAILED") // FAILED | CONTACTED | RECOVERED
+  status        String    @default("FAILED") // FAILED | CONTACTED | RECOVERED
+
+  @@index([companyId])
 }
 

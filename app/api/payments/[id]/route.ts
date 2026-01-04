@@ -9,6 +9,16 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const companyId = request.headers.get('x-sc-company-id')
+    if (!companyId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const company = await prisma.company.upsert({
+      where: { companyId },
+      update: {},
+      create: { companyId },
+      select: { id: true },
+    })
+
     const { status } = await request.json()
 
     if (!status || !['FAILED', 'CONTACTED', 'RECOVERED'].includes(status)) {
@@ -18,12 +28,20 @@ export async function PATCH(
       )
     }
 
-    const payment = await prisma.failedPayment.update({
-      where: { id: params.id },
+    const result = await prisma.failedPayment.updateMany({
+      where: { id: params.id, companyId: company.id },
       data: { status },
     })
 
-    return NextResponse.json(payment)
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const updated = await prisma.failedPayment.findFirst({
+      where: { id: params.id, companyId: company.id },
+    })
+
+    return NextResponse.json(updated)
   } catch (error) {
     console.error('Error updating payment:', error)
     return NextResponse.json(

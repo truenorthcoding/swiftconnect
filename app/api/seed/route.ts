@@ -1,12 +1,23 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDiscordNotification } from '@/lib/discord'
+import { NextRequest } from 'next/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const companyId = request.headers.get('x-sc-company-id')
+    if (!companyId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const company = await prisma.company.upsert({
+      where: { companyId },
+      update: {},
+      create: { companyId },
+      select: { id: true },
+    })
+
     const sampleData = {
       customerName: 'John Doe',
       customerEmail: 'john.doe@example.com',
@@ -19,6 +30,7 @@ export async function POST() {
     const failedPayment = await prisma.failedPayment.create({
       data: {
         ...sampleData,
+        companyId: company.id,
         status: 'FAILED',
       },
     })
